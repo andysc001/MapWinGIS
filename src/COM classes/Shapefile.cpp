@@ -3008,13 +3008,6 @@ STDMETHODIMP CShapefile::GetRelatedShapes2(IShape* referenceShape, tkSpatialRela
 void CShapefile::GetRelatedShapeCore(IShape* referenceShape, long referenceIndex, tkSpatialRelation relation,
                                      VARIANT* resultArray, VARIANT_BOOL* retval)
 {
-    if (relation == srDisjoint)
-    {
-        // TODO: implement
-        ErrorMessage(tkMETHOD_NOT_IMPLEMENTED);
-        return;
-    }
-
     // rather than generate geometries for all shapes,
     // only generate for those within qtree extent (see below)
     //this->ReadGeosGeometries(VARIANT_FALSE);
@@ -3058,13 +3051,13 @@ void CShapefile::GetRelatedShapeCore(IShape* referenceShape, long referenceIndex
                 if (i == referenceIndex)
                     continue; // it doesn't make sense to compare the shape with itself
 
-                // ReSharper disable once CppLocalVariableMayBeConst
-                GEOSGeom geom = _shapeData[shapes[i]]->geosGeom;
-                if (geom != nullptr)
+                const GEOSGeom geom = _shapeData[shapes[i]]->geosGeom;
+                if (geom == nullptr)
+                    continue;
+                
+                char res = 0;
+                switch (relation)
                 {
-                    char res = 0;
-                    switch (relation)
-                    {
                     case srContains: res = GeosHelper::Contains(geomBase, geom);
                         break;
                     case srCrosses: res = GeosHelper::Crosses(geomBase, geom);
@@ -3079,13 +3072,17 @@ void CShapefile::GetRelatedShapeCore(IShape* referenceShape, long referenceIndex
                         break;
                     case srWithin: res = GeosHelper::Within(geomBase, geom);
                         break;
-                    case srDisjoint: break;
-                    default: ;
-                    }
-                    if (res)
-                    {
-                        arr.push_back(shapes[i]);
-                    }
+                    case srCovers: res = GeosHelper::Covers(geomBase, geom);
+                        break;
+                    case srCoveredBy: res = GeosHelper::CoveredBy(geomBase, geom);
+                        break;
+                    default:
+                    case srDisjoint: res = GeosHelper::Disjoint(geomBase, geom);
+                        break;
+                }
+                if (res)
+                {
+                    arr.push_back(shapes[i]);
                 }
             }
 
